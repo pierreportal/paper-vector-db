@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+#[derive(Debug)]
 pub struct Document {
     pub id: Uuid,
     // pub title: String,

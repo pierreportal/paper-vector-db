@@ -10,6 +10,7 @@ pub struct SearchResult {
     pub content: String,
 }
 
+#[derive(Debug)]
 pub struct Collection {
     pub name: String,
     pub dimension: usize,
