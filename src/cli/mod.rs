@@ -1,2 +1,2 @@
 mod main;
-pub use main::{Cli, Commands};
+pub use main::{Commands, parse_command};
