@@ -16,6 +16,7 @@ pub enum Commands {
     DeleteById { id: String },
     Delete { path_str: String },
     EmbedFile { path: PathBuf },
+    Map,
     Quit,
 }
 
@@ -55,6 +56,7 @@ pub fn parse_command(user_input: &str) -> Result<Commands, CmdError> {
             ["delete", path] => Ok(Commands::Delete {
                 path_str: path.to_string(),
             }),
+            ["map"] => Ok(Commands::Map),
             ["deleteById", id] => Ok(Commands::DeleteById { id: id.to_string() }),
             _ => Err(CmdError::Invalid(tokens.as_slice().join(" "))),
         }
