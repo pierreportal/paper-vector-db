@@ -2,14 +2,19 @@ mod cli;
 mod db;
 mod text_processing;
 mod types;
+mod utils;
 
 use cli::{Commands, parse_command};
 use db::collection::Collection;
 use std::collections::HashMap;
+use std::fs::read_to_string;
 use std::io::{self, Write};
 use text_processing::embeddings::{BatchSize, TextProcessing};
 use types::document::DocumentInsert;
 use uuid::Uuid;
+
+use crate::utils::chunk_text::chunk_text;
+use crate::utils::file_validation::validate_file;
 
 pub struct Database {
     pub collections: HashMap<String, Collection>,
@@ -26,7 +31,7 @@ fn main() {
 
     let db_path = "my_collection.db";
 
-    let mut collection = match Collection::load(db_path) {
+    let mut collection: Collection = match Collection::load(db_path) {
         Ok(c) => c,
         Err(_) => Collection::new("my_collection", db_path),
     };
@@ -51,19 +56,40 @@ fn main() {
         match parse_command(&user_input) {
             Err(e) => println!("Error: {}", e),
             Ok(cmd) => match cmd {
-                Commands::Insert { doc } => match text_processing.embed(&doc, BatchSize::None) {
-                    Ok(embedding) => {
-                        collection.insert(DocumentInsert {
-                            content: doc.to_owned(),
-                            embedding,
-                        });
-                        match collection.save() {
-                            Err(e) => println!("{}", e),
-                            Ok(_) => println!("New item inserted."),
+                Commands::EmbedFile { path } => {
+                    let absolute_path = path.canonicalize().unwrap_or(path.clone());
+
+                    if validate_file(&absolute_path).is_err() {
+                        eprintln!("Error: invalid path");
+                        continue;
+                    }
+
+                    let extension = path.extension().and_then(|ext| ext.to_str()).unwrap();
+
+                    let doc = match extension {
+                        "pdf" => pdf_extract::extract_text(&absolute_path).unwrap(),
+                        _ => read_to_string(&absolute_path).unwrap(),
+                    };
+
+                    let chunks = chunk_text(extension, &doc);
+
+                    for c in chunks {
+                        match text_processing.embed(&c.content, BatchSize::None) {
+                            Ok(embedding) => {
+                                collection.insert(DocumentInsert {
+                                    chunk_index: c.index,
+                                    path: format!("{}", absolute_path.display()),
+                                    embedding,
+                                });
+                                match collection.save() {
+                                    Err(e) => println!("{}", e),
+                                    Ok(_) => println!("New file embedded."),
+                                }
+                            }
+                            Err(e) => eprintln!("Error: {}", e),
                         }
                     }
-                    Err(e) => eprintln!("Error: {}", e),
-                },
+                }
                 Commands::Search { query } => {
                     match text_processing.embed(&query, BatchSize::None) {
                         Ok(embedding) => {
@@ -73,9 +99,18 @@ fn main() {
                         Err(e) => eprintln!("Error: {}", e),
                     }
                 }
-                Commands::Delete { id } => {
+                Commands::DeleteById { id } => {
                     let uuid = Uuid::parse_str(&id).unwrap();
                     collection.delete(uuid);
+
+                    match collection.save() {
+                        Err(e) => println!("{}", e),
+                        Ok(_) => println!("Item deleted."),
+                    }
+                }
+                Commands::Delete { path_str } => {
+                    collection.delete_at_path(path_str);
+
                     match collection.save() {
                         Err(e) => println!("{}", e),
                         Ok(_) => println!("Item deleted."),

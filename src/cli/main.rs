@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, path::PathBuf};
 
 use crate::text_processing::tokenize::tokenize;
 use clap::{Parser, Subcommand};
@@ -12,16 +12,16 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    Insert { doc: String },
     Search { query: String },
-    Delete { id: String },
+    DeleteById { id: String },
+    Delete { path_str: String },
+    EmbedFile { path: PathBuf },
     Quit,
 }
 
 #[derive(Debug)]
 pub enum CmdError {
     Invalid(String),
-    // MissingArgument(String),
     UnknownCommand(String),
 }
 
@@ -31,9 +31,6 @@ impl fmt::Display for CmdError {
             CmdError::Invalid(message) => {
                 write!(f, "invalid command: {message}")
             }
-            // CmdError::MissingArgument(argument) => {
-            //     write!(f, "missing argument: {argument}")
-            // }
             CmdError::UnknownCommand(command) => {
                 write!(f, "unknown command: {command}")
             }
@@ -49,13 +46,16 @@ pub fn parse_command(user_input: &str) -> Result<Commands, CmdError> {
 
         match tokens.as_slice() {
             ["quit"] | ["exit"] => Ok(Commands::Quit),
-            ["insert", item] => Ok(Commands::Insert {
-                doc: item.to_string(),
+            ["embed", path] => Ok(Commands::EmbedFile {
+                path: PathBuf::from(path),
             }),
             ["search", item] => Ok(Commands::Search {
                 query: item.to_string(),
             }),
-            ["delete", id] => Ok(Commands::Delete { id: id.to_string() }),
+            ["delete", path] => Ok(Commands::Delete {
+                path_str: path.to_string(),
+            }),
+            ["deleteById", id] => Ok(Commands::DeleteById { id: id.to_string() }),
             _ => Err(CmdError::Invalid(tokens.as_slice().join(" "))),
         }
     } else {

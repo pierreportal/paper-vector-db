@@ -6,16 +6,16 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub struct SearchResult {
     pub id: Uuid,
-    // pub title: String,
+    pub chunk_index: usize,
     pub score: f32,
-    pub content: String,
+    pub path: String,
 }
 
 #[derive(Debug)]
 pub struct Collection {
     pub name: String,
     pub dimension: usize,
-    pub documents: Vec<Document>, // Later upgrade: replace Vec → disk + index.
+    pub documents: Vec<Document>,
     storage: Storage,
 }
 
@@ -41,8 +41,8 @@ impl Collection {
 
         let new_document = Document {
             id: new_document_id,
-            // title: document.title,
-            content: document.content,
+            path: document.path,
+            chunk_index: document.chunk_index,
             embedding: document.embedding,
         };
         self.documents.push(new_document);
@@ -52,6 +52,15 @@ impl Collection {
 
     pub fn delete(&mut self, document_id: Uuid) -> bool {
         if let Some(pos) = self.documents.iter().position(|d| d.id == document_id) {
+            self.documents.swap_remove(pos);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn delete_at_path(&mut self, path: String) -> bool {
+        if let Some(pos) = self.documents.iter().position(|d| d.path == path) {
             self.documents.swap_remove(pos);
             true
         } else {
@@ -76,9 +85,9 @@ impl Collection {
             .take(k)
             .map(|(doc, score)| SearchResult {
                 id: doc.id,
-                // title: doc.title.clone(),
+                chunk_index: doc.chunk_index,
                 score,
-                content: doc.content.clone(),
+                path: doc.path.to_owned(),
             })
             .collect()
     }
@@ -95,7 +104,6 @@ impl Collection {
     }
     pub fn load(storage_path: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
         let storage = Storage::new(storage_path);
-
         let data: CollectionData = storage.load()?;
 
         Ok(Self {
@@ -107,7 +115,6 @@ impl Collection {
     }
     pub fn open(name: &str, storage_path: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
         let storage_path = storage_path.into();
-
         let storage = Storage::new(storage_path.clone());
 
         if storage.exists() {
