@@ -1,3 +1,4 @@
+use crate::db::storage::Storage;
 use crate::types::document::{Document, DocumentInsert};
 use fastembed::similarity::cosine_similarity;
 use uuid::Uuid;
@@ -15,14 +16,23 @@ pub struct Collection {
     pub name: String,
     pub dimension: usize,
     pub documents: Vec<Document>, // Later upgrade: replace Vec → disk + index.
+    storage: Storage,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct CollectionData {
+    name: String,
+    dimension: usize,
+    documents: Vec<Document>,
 }
 
 impl Collection {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: &str, storage_path: impl Into<std::path::PathBuf>) -> Self {
         Self {
             name: name.to_string(),
             dimension: 384, // default
             documents: Vec::<Document>::new(),
+            storage: Storage::new(storage_path),
         }
     }
 
@@ -71,5 +81,39 @@ impl Collection {
                 content: doc.content.clone(),
             })
             .collect()
+    }
+
+    // storage
+    pub fn save(&self) -> anyhow::Result<()> {
+        let data = CollectionData {
+            name: self.name.clone(),
+            dimension: self.dimension,
+            documents: self.documents.clone(),
+        };
+
+        self.storage.save(&data)
+    }
+    pub fn load(storage_path: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
+        let storage = Storage::new(storage_path);
+
+        let data: CollectionData = storage.load()?;
+
+        Ok(Self {
+            name: data.name,
+            dimension: data.dimension,
+            documents: data.documents,
+            storage,
+        })
+    }
+    pub fn open(name: &str, storage_path: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
+        let storage_path = storage_path.into();
+
+        let storage = Storage::new(storage_path.clone());
+
+        if storage.exists() {
+            Self::load(storage_path)
+        } else {
+            Ok(Self::new(name, storage_path))
+        }
     }
 }

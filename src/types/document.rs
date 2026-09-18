@@ -1,6 +1,6 @@
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct Document {
     pub id: Uuid,
     // pub title: String,
