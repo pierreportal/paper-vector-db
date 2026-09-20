@@ -1,3 +1,4 @@
+use crate::config::{CHUNKER_MAX_CHARS, CHUNKER_MIN_CHARS};
 use regex::Regex;
 
 #[derive(Debug)]
@@ -5,9 +6,6 @@ pub struct TextChunk {
     pub content: String,
     pub index: usize,
 }
-
-const MAX_CHARS: usize = 4_000;
-const MIN_CHARS: usize = 100;
 
 fn split_markdown(text: &str) -> Vec<TextChunk> {
     let re = Regex::new(r"(?m)^(#{1,6})\s+(.*)$").unwrap();
@@ -20,7 +18,7 @@ fn split_markdown(text: &str) -> Vec<TextChunk> {
     if let Some(first) = matches.first() {
         let content = text[..first.get(0).unwrap().start()].trim();
 
-        if content.len() >= MIN_CHARS && content.len() <= MAX_CHARS {
+        if content.len() >= CHUNKER_MIN_CHARS && content.len() <= CHUNKER_MAX_CHARS {
             chunks.push(TextChunk {
                 content: content.to_string(),
                 index: chunks.len(),
@@ -28,7 +26,7 @@ fn split_markdown(text: &str) -> Vec<TextChunk> {
         }
     } else {
         // No headings at all
-        if text.len() >= MIN_CHARS && text.len() <= MAX_CHARS {
+        if text.len() >= CHUNKER_MIN_CHARS && text.len() <= CHUNKER_MAX_CHARS {
             chunks.push(TextChunk {
                 content: text.trim().to_string(),
                 index: 0,
@@ -78,14 +76,14 @@ fn split_text(text: &str) -> Vec<TextChunk> {
     let mut current = String::new();
 
     for paragraph in paragraphs {
-        if current.len() + paragraph.len() + 2 <= MAX_CHARS {
+        if current.len() + paragraph.len() + 2 <= CHUNKER_MAX_CHARS {
             if !current.is_empty() {
                 current.push_str("\n\n");
             }
 
             current.push_str(paragraph);
         } else {
-            if current.len() >= MIN_CHARS {
+            if current.len() >= CHUNKER_MIN_CHARS {
                 chunks.push(TextChunk {
                     content: current,
                     index: chunks.len(),

@@ -12,6 +12,8 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    All,
+    Lucky { query: String },
     Search { query: String },
     DeleteById { id: String },
     Delete { path_str: String },
@@ -46,11 +48,15 @@ pub fn parse_command(user_input: &str) -> Result<Commands, CmdError> {
         let tokens: Vec<&str> = tokens.iter().map(String::as_str).collect();
 
         match tokens.as_slice() {
+            ["all"] => Ok(Commands::All),
             ["quit"] | ["exit"] => Ok(Commands::Quit),
             ["embed", path] => Ok(Commands::EmbedFile {
                 path: PathBuf::from(path),
             }),
             ["search", item] => Ok(Commands::Search {
+                query: item.to_string(),
+            }),
+            ["lucky", item] => Ok(Commands::Lucky {
                 query: item.to_string(),
             }),
             ["delete", path] => Ok(Commands::Delete {

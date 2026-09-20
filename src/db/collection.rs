@@ -1,9 +1,11 @@
+use crate::config::DEFAULT_EMBEDDING_DIMENSION;
 use crate::db::storage::Storage;
 use crate::types::document::{Document, DocumentInsert};
 use fastembed::similarity::cosine_similarity;
 use uuid::Uuid;
 
 #[derive(Debug)]
+#[allow(unused)]
 pub struct SearchResult {
     pub id: Uuid,
     pub chunk_index: usize,
@@ -26,14 +28,26 @@ struct CollectionData {
     documents: Vec<Document>,
 }
 
+#[allow(unused)]
 impl Collection {
     pub fn new(name: &str, storage_path: impl Into<std::path::PathBuf>) -> Self {
         Self {
             name: name.to_string(),
-            dimension: 384, // default
+            dimension: DEFAULT_EMBEDDING_DIMENSION,
             documents: Vec::<Document>::new(),
             storage: Storage::new(storage_path),
         }
+    }
+
+    pub fn embeddings(&self) -> Vec<Vec<f32>> {
+        self.documents
+            .iter()
+            .map(|doc| doc.embedding.clone())
+            .collect()
+    }
+
+    pub fn find(&self, predicate: impl FnMut(&&Document) -> bool) -> Option<&Document> {
+        self.documents.iter().find(predicate)
     }
 
     pub fn insert(&mut self, document: DocumentInsert) -> Uuid {
