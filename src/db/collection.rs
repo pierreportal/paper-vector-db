@@ -60,26 +60,19 @@ impl Collection {
             embedding: document.embedding,
         };
         self.documents.push(new_document);
-
         new_document_id
     }
 
     pub fn delete(&mut self, document_id: Uuid) -> bool {
-        if let Some(pos) = self.documents.iter().position(|d| d.id == document_id) {
-            self.documents.swap_remove(pos);
-            true
-        } else {
-            false
-        }
+        let original_len = self.documents.len();
+        self.documents.retain(|document| document.id != document_id);
+        self.documents.len() != original_len
     }
 
     pub fn delete_at_path(&mut self, path: String) -> bool {
-        if let Some(pos) = self.documents.iter().position(|d| d.path == path) {
-            self.documents.swap_remove(pos);
-            true
-        } else {
-            false
-        }
+        let original_len = self.documents.len();
+        self.documents.retain(|document| document.path != path);
+        self.documents.len() != original_len
     }
 
     pub fn search(&self, query: &Vec<f32>, k: usize) -> Vec<SearchResult> {

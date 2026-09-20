@@ -18,6 +18,7 @@ pub enum Commands {
     DeleteById { id: String },
     Delete { path_str: String },
     EmbedFile { path: PathBuf },
+    IndexDirectory { path: PathBuf },
     Map,
     Quit,
 }
@@ -51,6 +52,9 @@ pub fn parse_command(user_input: &str) -> Result<Commands, CmdError> {
             ["all"] => Ok(Commands::All),
             ["quit"] | ["exit"] => Ok(Commands::Quit),
             ["embed", path] => Ok(Commands::EmbedFile {
+                path: PathBuf::from(path),
+            }),
+            ["index", path] => Ok(Commands::IndexDirectory {
                 path: PathBuf::from(path),
             }),
             ["search", item] => Ok(Commands::Search {

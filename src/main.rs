@@ -14,9 +14,33 @@ use crate::visualization::pca::pca_2d;
 use cli::{Commands, parse_command};
 use db::collection::Collection;
 use std::io::{self, Write};
+use std::path::PathBuf;
 use text_processing::embedder::{BatchSize, Embedder};
 use types::document::DocumentInsert;
 use uuid::Uuid;
+use walkdir::WalkDir;
+
+fn embed_file(absolute_path: PathBuf, embedder: &mut Embedder, collection: &mut Collection) {
+    let chunks = extract_text_chunks_from_file(&absolute_path);
+
+    for c in chunks {
+        // Should I parallelise ?
+        match embedder.embed(&c.content, BatchSize::None) {
+            Ok(embedding) => {
+                collection.insert(DocumentInsert {
+                    chunk_index: c.index,
+                    path: format!("{}", absolute_path.display()),
+                    embedding,
+                });
+                match collection.save() {
+                    Err(e) => println!("{}", e),
+                    Ok(_) => println!("New file embedded."),
+                }
+            }
+            Err(e) => eprintln!("Error: {}", e),
+        }
+    }
+}
 
 fn run(mut collection: Collection, mut embedder: Embedder) {
     loop {
@@ -53,6 +77,23 @@ fn run(mut collection: Collection, mut embedder: Embedder) {
                     }
                 }
 
+                Commands::IndexDirectory { path } => {
+                    for entry in WalkDir::new(path) {
+                        let entry = entry.unwrap();
+                        let absolute_path = entry.path().canonicalize().unwrap();
+
+                        if collection.find(|d| d.path == absolute_path).is_some() {
+                            eprintln!("Error: file already embeded");
+                            continue;
+                        }
+
+                        if validate_file(&absolute_path).is_err() {
+                            continue;
+                        }
+                        embed_file(absolute_path, &mut embedder, &mut collection);
+                    }
+                }
+
                 Commands::EmbedFile { path } => {
                     let absolute_path = path.canonicalize().unwrap_or(path.clone());
 
@@ -65,26 +106,7 @@ fn run(mut collection: Collection, mut embedder: Embedder) {
                         eprintln!("Error: invalid path");
                         continue;
                     }
-
-                    let chunks = extract_text_chunks_from_file(&absolute_path);
-
-                    for c in chunks {
-                        // Should I parallelise ?
-                        match embedder.embed(&c.content, BatchSize::None) {
-                            Ok(embedding) => {
-                                collection.insert(DocumentInsert {
-                                    chunk_index: c.index,
-                                    path: format!("{}", absolute_path.display()),
-                                    embedding,
-                                });
-                                match collection.save() {
-                                    Err(e) => println!("{}", e),
-                                    Ok(_) => println!("New file embedded."),
-                                }
-                            }
-                            Err(e) => eprintln!("Error: {}", e),
-                        }
-                    }
+                    embed_file(absolute_path, &mut embedder, &mut collection);
                 }
 
                 Commands::Lucky { query } => match embedder.embed(&query, BatchSize::None) {

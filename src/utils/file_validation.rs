@@ -25,19 +25,16 @@ pub fn validate_file(absolute_path: &Path) -> Result<()> {
 fn is_supported_extension(extension: &str) -> bool {
     matches!(
         extension,
-        "txt" | "md" | "pdf" // | "rs"
-                             // | "js"
-                             // | "ts"
-                             // | "jsx"
-                             // | "tsx"
-                             // | "json"
-                             // | "toml"
-                             // | "yaml"
-                             // | "yml"
-                             // | "html"
-                             // | "css"
-                             // | "scss"
-                             // | "xml"
-                             // | "csv"
+        "txt" | "md" | "pdf" | "ts" | "rs" | "jsx" // | "js"
+                                                   // | "tsx"
+                                                   // | "json"
+                                                   // | "toml"
+                                                   // | "yaml"
+                                                   // | "yml"
+                                                   // | "html"
+                                                   // | "css"
+                                                   // | "scss"
+                                                   // | "xml"
+                                                   // | "csv"
     )
 }

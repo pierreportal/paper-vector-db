@@ -69,9 +69,6 @@ fn split_text(text: &str) -> Vec<TextChunk> {
         .filter(|p| !p.is_empty())
         .collect();
 
-    let b = split_markdown(text);
-    println!("{:#?}", b);
-
     let mut chunks = Vec::new();
     let mut current = String::new();
 
