@@ -75,7 +75,7 @@ impl Collection {
         self.documents.len() != original_len
     }
 
-    pub fn search(&self, query: &Vec<f32>, k: usize) -> Vec<SearchResult> {
+    pub fn search(&self, query: &[f32], k: usize) -> Vec<SearchResult> {
         let mut results: Vec<_> = self
             .documents
             .iter()
@@ -109,6 +109,7 @@ impl Collection {
 
         self.storage.save(&data)
     }
+
     pub fn load(storage_path: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
         let storage = Storage::new(storage_path);
         let data: CollectionData = storage.load()?;
@@ -120,6 +121,7 @@ impl Collection {
             storage,
         })
     }
+
     pub fn open(name: &str, storage_path: impl Into<std::path::PathBuf>) -> anyhow::Result<Self> {
         let storage_path = storage_path.into();
         let storage = Storage::new(storage_path.clone());
@@ -129,5 +131,77 @@ impl Collection {
         } else {
             Ok(Self::new(name, storage_path))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn collection() -> Collection {
+        Collection::new("test", "/tmp/toy-vector-db-test.db")
+    }
+
+    fn insert(collection: &mut Collection, path: &str, embedding: Vec<f32>) -> Uuid {
+        collection.insert(DocumentInsert {
+            chunk_index: 0,
+            path: path.to_string(),
+            embedding,
+        })
+    }
+
+    #[test]
+    fn search_ranks_by_cosine_similarity() {
+        let mut collection = collection();
+        insert(&mut collection, "exact", vec![1.0, 0.0, 0.0]);
+        insert(&mut collection, "partial", vec![0.7, 0.7, 0.0]);
+        insert(&mut collection, "orthogonal", vec![0.0, 1.0, 0.0]);
+
+        let results = collection.search(&[1.0, 0.0, 0.0], 3);
+
+        assert_eq!(results[0].path, "exact");
+        assert_eq!(results[1].path, "partial");
+        assert_eq!(results[2].path, "orthogonal");
+        assert!(results[0].score >= results[1].score);
+        assert!(results[1].score >= results[2].score);
+    }
+
+    #[test]
+    fn search_respects_k() {
+        let mut collection = collection();
+        insert(&mut collection, "a", vec![1.0, 0.0]);
+        insert(&mut collection, "b", vec![0.5, 0.5]);
+
+        assert_eq!(collection.search(&[1.0, 0.0], 1).len(), 1);
+    }
+
+    #[test]
+    fn delete_removes_by_id() {
+        let mut collection = collection();
+        let id = insert(&mut collection, "a", vec![1.0, 0.0]);
+
+        assert!(collection.delete(id));
+        assert!(!collection.delete(id));
+        assert!(collection.documents.is_empty());
+    }
+
+    #[test]
+    fn delete_at_path_removes_all_chunks_of_a_file() {
+        let mut collection = collection();
+        collection.insert(DocumentInsert {
+            chunk_index: 0,
+            path: "file.md".into(),
+            embedding: vec![1.0, 0.0],
+        });
+        collection.insert(DocumentInsert {
+            chunk_index: 1,
+            path: "file.md".into(),
+            embedding: vec![0.0, 1.0],
+        });
+        insert(&mut collection, "other.md", vec![1.0, 1.0]);
+
+        assert!(collection.delete_at_path("file.md".into()));
+        assert_eq!(collection.documents.len(), 1);
+        assert_eq!(collection.documents[0].path, "other.md");
     }
 }

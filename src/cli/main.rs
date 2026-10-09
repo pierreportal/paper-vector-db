@@ -1,7 +1,6 @@
-use std::{fmt, path::PathBuf};
-
 use crate::text_processing::tokenize::tokenize;
 use clap::{Parser, Subcommand};
+use std::{fmt, path::PathBuf};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -72,5 +71,39 @@ pub fn parse_command(user_input: &str) -> Result<Commands, CmdError> {
         }
     } else {
         Err(CmdError::UnknownCommand(user_input.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_simple_commands() {
+        assert!(matches!(parse_command("all").unwrap(), Commands::All));
+        assert!(matches!(parse_command("map").unwrap(), Commands::Map));
+        assert!(matches!(parse_command("exit").unwrap(), Commands::Quit));
+    }
+
+    #[test]
+    fn parses_search_query_with_spaces() {
+        match parse_command(r#"search "hello world""#).unwrap() {
+            Commands::Search { query } => assert_eq!(query, "hello world"),
+            other => panic!("expected search command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn parses_file_paths() {
+        match parse_command("embed ./notes.md").unwrap() {
+            Commands::EmbedFile { path } => assert_eq!(path, PathBuf::from("./notes.md")),
+            other => panic!("expected embed command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_unknown_commands() {
+        assert!(parse_command("frobnicate").is_err());
+        assert!(parse_command("search").is_err());
     }
 }

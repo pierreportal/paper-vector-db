@@ -107,3 +107,63 @@ pub fn chunk_text(extension: &str, text: &str) -> Vec<TextChunk> {
         _ => split_text(text),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn markdown_splits_on_headings() {
+        // "before" section is padded past CHUNKER_MIN_CHARS so it is kept.
+        let text = format!(
+            "{}\n\n# One\nfirst section\n\n## Two\nsecond section\n",
+            "intro ".repeat(30)
+        );
+
+        let chunks = chunk_text("md", &text);
+
+        assert_eq!(chunks.len(), 3);
+        assert!(chunks[0].content.starts_with("intro"));
+        assert_eq!(chunks[1].content, "first section");
+        assert_eq!(chunks[2].content, "second section");
+        // indices are contiguous
+        assert_eq!(
+            chunks.iter().map(|c| c.index).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn markdown_without_headings_is_a_single_chunk() {
+        let text = "a ".repeat(CHUNKER_MIN_CHARS);
+        let chunks = chunk_text("md", text.trim());
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].index, 0);
+    }
+
+    #[test]
+    fn short_markdown_without_headings_is_dropped() {
+        let chunks = chunk_text("md", "too short");
+        assert!(chunks.is_empty());
+    }
+
+    #[test]
+    fn plain_text_groups_paragraphs() {
+        let text = "first paragraph\n\nsecond paragraph";
+        let chunks = chunk_text("txt", text);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0].content, "first paragraph\n\nsecond paragraph");
+    }
+
+    #[test]
+    fn plain_text_respects_max_chars() {
+        // Two paragraphs that cannot fit inside CHUNKER_MAX_CHARS together.
+        let big = "x".repeat(CHUNKER_MAX_CHARS - 10);
+        let text = format!("{big}\n\nlorem ipsum dolor sit amet");
+
+        let chunks = chunk_text("txt", &text);
+
+        assert_eq!(chunks.len(), 2);
+        assert!(chunks.iter().all(|c| c.content.len() <= CHUNKER_MAX_CHARS));
+    }
+}

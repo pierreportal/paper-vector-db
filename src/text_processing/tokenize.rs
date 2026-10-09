@@ -31,3 +31,36 @@ pub fn tokenize(input: &str) -> Result<Vec<String>, String> {
 
     Ok(tokens)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn splits_on_whitespace() {
+        assert_eq!(tokenize("search rust").unwrap(), vec!["search", "rust"]);
+    }
+
+    #[test]
+    fn keeps_quoted_argument_together() {
+        assert_eq!(
+            tokenize(r#"search "hello world""#).unwrap(),
+            vec!["search", "hello world"]
+        );
+    }
+
+    #[test]
+    fn collapses_extra_whitespace() {
+        assert_eq!(tokenize("  all   files  ").unwrap(), vec!["all", "files"]);
+    }
+
+    #[test]
+    fn empty_input_yields_no_tokens() {
+        assert!(tokenize("   ").unwrap().is_empty());
+    }
+
+    #[test]
+    fn unclosed_quote_is_an_error() {
+        assert!(tokenize(r#"search "unterminated"#).is_err());
+    }
+}

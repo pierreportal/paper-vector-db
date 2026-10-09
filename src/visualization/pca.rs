@@ -78,3 +78,29 @@ pub fn pca_2d(embeddings: &[Vec<f32>]) -> Vec<Point2D> {
 
     points
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dist(a: &Point2D, b: &Point2D) -> f32 {
+        ((a.x - b.x).powi(2) + (a.y - b.y).powi(2)).sqrt()
+    }
+
+    #[test]
+    fn keeps_similar_points_close() {
+        let embeddings = vec![
+            vec![1.0, 1.0, 0.0],
+            vec![1.1, 0.9, 0.0],
+            vec![-1.0, -1.0, 0.0],
+            vec![-1.1, -0.9, 0.0],
+        ];
+
+        let points = pca_2d(&embeddings);
+
+        assert_eq!(points.len(), 4);
+        let within_cluster = dist(&points[0], &points[1]);
+        let across_clusters = dist(&points[0], &points[2]);
+        assert!(across_clusters > within_cluster);
+    }
+}
